@@ -9,7 +9,7 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.release>21</maven.compiler.release>
+    <maven.compiler.release>25</maven.compiler.release>
   </properties>
 
   <dependencies>
@@ -22,15 +22,9 @@
 
     <!-- minecraft -->
     <dependency>
-      <groupId>dev.folia</groupId>
-      <artifactId>folia-api</artifactId>
-      <version>1.21.8-R0.1-SNAPSHOT</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>ca.bkaw</groupId>
-      <artifactId>paper-nms</artifactId>
-      <version>1.21.8-SNAPSHOT</version>
+      <groupId>io.canvasmc.canvas</groupId>
+            <artifactId>canvas-api</artifactId>
+            <version>26.2.build.938-stable</version>
       <scope>provided</scope>
     </dependency>
 
@@ -259,6 +253,11 @@
   </dependencies>
 
   <repositories>
+        <repository>
+            <id>canvasmc-repo</id>
+            <url>https://maven.canvasmc.io/releases</url>
+        </repository>
+
     <repository>
       <id>tcoded-releases</id>
       <url>https://repo.tcoded.com/releases</url>
@@ -321,11 +320,6 @@
     </resources>
 
     <plugins>
-      <plugin>
-        <groupId>ca.bkaw</groupId>
-        <artifactId>paper-nms-maven-plugin</artifactId>
-        <version>1.4.10</version>
-      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
