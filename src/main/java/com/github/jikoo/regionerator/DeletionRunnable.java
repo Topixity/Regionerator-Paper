@@ -14,7 +14,6 @@ import com.github.jikoo.regionerator.world.ChunkInfo;
 import com.github.jikoo.regionerator.world.RegionInfo;
 import com.github.jikoo.regionerator.world.WorldInfo;
 import com.tcoded.folialib.wrapper.task.WrappedTask;
-import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.plugin.IllegalPluginAccessException;
 import org.jetbrains.annotations.NotNull;
@@ -23,7 +22,10 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -52,7 +54,16 @@ public class DeletionRunnable implements Consumer<WrappedTask> {
 	private int nextLogCount = 20;
 
 	private WrappedTask taskInstance;
-	private List<Chunk> lessInteractChunks = new ArrayList<>();
+	/**
+	 * Chunks whose activity window has expired, as packed coordinate keys.
+	 *
+	 * <p>Deliberately NOT a {@code List<Chunk>}: eligibility is evaluated on an async thread, and
+	 * {@code Chunk#equals} would force us to obtain a Bukkit chunk there — which on Folia/Canvas
+	 * throws {@code ThreadViolationException} ("Async chunk retrieval") and aborts the whole
+	 * deletion cycle, and which would also load (or generate) the very chunk we are about to
+	 * delete. Holding live {@code Chunk} references across a cycle would pin them, too.
+	 */
+	private Set<Long> lessInteractChunkKeys = Collections.emptySet();
 
 	DeletionRunnable(@NotNull Regionerator plugin, @NotNull World world) {
 		this.plugin = plugin;
@@ -79,7 +90,11 @@ public class DeletionRunnable implements Consumer<WrappedTask> {
 		}
 
 		int days = plugin.config().getExpiredDaysInWorld(world.getWorld());
-		lessInteractChunks = plugin.getTracker().pollExpiredChunks(world.getWorld(), days);
+		// Resolve to plain coordinates here, while we still hold the chunks handed over by the
+		// tracker — nothing below this line may touch the world off-thread.
+		lessInteractChunkKeys = plugin.getTracker().pollExpiredChunks(world.getWorld(), days).stream()
+				.map(chunk -> packChunkKey(chunk.getX(), chunk.getZ()))
+				.collect(Collectors.toCollection(HashSet::new));
 
 		if (regions != null) {
 			regions.forEach(this::handleRegion);
@@ -237,6 +252,11 @@ public class DeletionRunnable implements Consumer<WrappedTask> {
 		heavyChecks.set(0);
 	}
 
+	/** Chunk coordinates as one key. Same packing as the release running in production. */
+	private static long packChunkKey(int chunkX, int chunkZ) {
+		return (chunkX & 0xFFFFFFFFL) | ((chunkZ & 0xFFFFFFFFL) << 32);
+	}
+
 	private boolean isDeleteEligible(@NotNull ChunkInfo chunkInfo) {
 		World world = chunkInfo.getWorld();
 
@@ -257,7 +277,7 @@ public class DeletionRunnable implements Consumer<WrappedTask> {
 		long lastVisit = chunkInfo.getLastVisit();
 		boolean isFresh = !plugin.config().isDeleteFreshChunks(world) && lastVisit == plugin.config().getFlagGenerated(world);
 
-		if (lessInteractChunks.contains(chunkInfo.getBukkitChunk())) {
+		if (lessInteractChunkKeys.contains(packChunkKey(chunkInfo.getChunkX(), chunkInfo.getChunkZ()))) {
 			plugin.debug(DebugLevel.HIGH, () -> String.format("Chunk %s_%s_%s is marked as delete because of less interactions",
 					chunkInfo.getWorld().getName(), chunkInfo.getChunkX(), chunkInfo.getChunkZ()));
 			return true;
