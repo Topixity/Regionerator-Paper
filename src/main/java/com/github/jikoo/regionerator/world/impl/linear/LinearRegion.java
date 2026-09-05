@@ -8,11 +8,11 @@ import com.github.jikoo.regionerator.world.impl.anvil.RegionFile;
 import com.github.luben.zstd.ZstdInputStream;
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.mojang.logging.LogUtils;
+import org.slf4j.LoggerFactory;
 import net.jpountz.lz4.LZ4Compressor;
 import net.jpountz.lz4.LZ4Factory;
 import net.jpountz.lz4.LZ4FastDecompressor;
-import net.minecraft.world.level.ChunkPos;
+
 import net.openhft.hashing.LongHashFunction;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -43,7 +43,7 @@ public class LinearRegion extends RegionInfo {
     private static final int HEADER_SIZE = 27;
     private static final int FOOTER_SIZE = 8;
 
-    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Logger LOGGER = LoggerFactory.getLogger(LinearRegion.class);
 
     private byte[][] bucketBuffers;
     private final byte[][] buffer = new byte[1024][];
@@ -464,7 +464,7 @@ public class LinearRegion extends RegionInfo {
             return;
         }
 
-        openBucket(pos.x, pos.z);
+        openBucket(pos.x(), pos.z());
         try {
             byte[] b = toByteArray(new ByteArrayInputStream(buffer.array()));
             int uncompressedSize = b.length;
@@ -479,10 +479,10 @@ public class LinearRegion extends RegionInfo {
                 b = new byte[compressedLength];
                 System.arraycopy(compressed, 0, b, 0, compressedLength);
 
-                int index = getChunkIndex(pos.x, pos.z);
+                int index = getChunkIndex(pos.x(), pos.z());
                 this.buffer[index] = b;
                 this.chunkTimestamps[index] = getTimestamp();
-                this.bufferUncompressedSize[getChunkIndex(pos.x, pos.z)] = uncompressedSize;
+                this.bufferUncompressedSize[getChunkIndex(pos.x(), pos.z())] = uncompressedSize;
             }
         } catch (IOException e) {
             LOGGER.error("Chunk write IOException {} {}", e, this.regionFile);
@@ -618,11 +618,11 @@ public class LinearRegion extends RegionInfo {
     @Deprecated
     public synchronized DataInputStream getChunkDataInputStream(ChunkPos pos) {
         read();
-        openBucket(pos.x, pos.z);
+        openBucket(pos.x(), pos.z());
 
-        if (this.bufferUncompressedSize[getChunkIndex(pos.x, pos.z)] != 0) {
-            byte[] content = new byte[bufferUncompressedSize[getChunkIndex(pos.x, pos.z)]];
-            this.decompressor.decompress(this.buffer[getChunkIndex(pos.x, pos.z)], 0, content, 0, bufferUncompressedSize[getChunkIndex(pos.x, pos.z)]);
+        if (this.bufferUncompressedSize[getChunkIndex(pos.x(), pos.z())] != 0) {
+            byte[] content = new byte[bufferUncompressedSize[getChunkIndex(pos.x(), pos.z())]];
+            this.decompressor.decompress(this.buffer[getChunkIndex(pos.x(), pos.z())], 0, content, 0, bufferUncompressedSize[getChunkIndex(pos.x(), pos.z())]);
             return new DataInputStream(new ByteArrayInputStream(content));
         }
         return null;
@@ -630,8 +630,8 @@ public class LinearRegion extends RegionInfo {
 
     public synchronized void clear(ChunkPos pos) {
         read();
-        openBucket(pos.x, pos.z);
-        int i = getChunkIndex(pos.x, pos.z);
+        openBucket(pos.x(), pos.z());
+        int i = getChunkIndex(pos.x(), pos.z());
         this.buffer[i] = null;
         this.bufferUncompressedSize[i] = 0;
         this.chunkTimestamps[i] = getTimestamp();

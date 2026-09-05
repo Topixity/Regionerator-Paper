@@ -72,8 +72,18 @@ public class ChunkActivityListener implements Listener {
         tracker.recordActivity(e.getBlock().getChunk());
     }
 
+    // BlockPistonEvent is abstract and has no static getHandlerList(), so Bukkit refuses to
+    // register a handler for it ("Unable to find handler list for event
+    // org.bukkit.event.block.BlockEvent") and the whole feature load aborts. Listen to the two
+    // concrete subclasses instead — getBlock() is the piston block in both, so the recorded
+    // activity is identical to what the previous release did.
     @EventHandler(ignoreCancelled = true)
-    public void onPiston(BlockPistonEvent e) {
+    public void onPistonExtend(BlockPistonExtendEvent e) {
+        tracker.recordActivity(e.getBlock().getChunk());
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onPistonRetract(BlockPistonRetractEvent e) {
         tracker.recordActivity(e.getBlock().getChunk());
     }
 
