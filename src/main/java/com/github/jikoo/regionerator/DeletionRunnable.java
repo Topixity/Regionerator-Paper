@@ -130,8 +130,6 @@ public class DeletionRunnable implements Consumer<WrappedTask> {
 	}
 
 	private void handleRegion(@NotNull RegionInfo region) {
-		plugin.getLogger().info("Cancelled: " + isCancelled());
-
 		if (isCancelled()) {
 			return;
 		}
